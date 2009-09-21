@@ -11,13 +11,14 @@ module Cap
   class Alert
     
     @@FIELDS = [:identifier, :sender, :sent, :status, :msg_type,
-                    :source, :scope, :restriction, :addresses, :codes,
-                    :note, :references, :incidents]
+                :source, :scope, :restriction, :addresses, :codes,
+                :note, :references, :incidents]
     
     attr_accessor *@@FIELDS
         
     def initialize
-      generate_identifier      
+      generate_identifier!
+      sent_now!    
       
       @addresses = []
       @codes = []
@@ -33,7 +34,7 @@ module Cap
       @codes << code
     end
     
-    def add_references(ref)
+    def add_reference(ref)
       @references << ref
     end
     
@@ -41,19 +42,24 @@ module Cap
       @incidents << inc
     end
                   
-    def generate_identifier
-      @identifier = Time.now.to_i.to_s + rand.to_s
+    def generate_identifier!
+      @identifier = Time.now.to_i.to_s + (rand*100000000).to_i.to_s
+    end
+
+    def sent_now!
+      @sent = DateTime.now
     end
     
     def to_xml(x = nil)
       x ||= Builder::XmlMarkup.new(:indent => 4)
+      x.instruct!
       x.alert {
         (@@FIELDS - [:addresses, :codes, :references, :incidents]).each do |f|
-          x.send f, instance_variable_get(f)
+          x.tag! f, send(f) if send(f)
         end
-        x.addresses((@addresses.map {|a| "\"#{a}\""}).join(' '))
+        x.addresses((@addresses.map {|a| "\"#{a}\""}).join(' ')) unless addresses == []
         [:codes, :incidents].each do |f|
-          instance_variable_get(f).each {|i| x.send f, i }
+          send(f).each {|i| x.send f, i } unless send(f) == []
         end
       }
       x
@@ -143,4 +149,4 @@ module Cap
 end
 
 a = Cap::Alert.new
-p a.to_s
+p a.to_xml
